@@ -1,6 +1,8 @@
 # Renogy-BT2-Reader
 Arduino library to interrogate Renogy devices that use a BT2 dongle over bluetooth
 
+9/2023 - forking to support ArduinoBLE instead of Adafruit's (also excellent) library
+
 Renogy make a number of solar MPPT controllers, DC:DC converters and other devices.   Their more recent products use a bluetooth dongle known as a [BT2](https://www.renogy.com/bt-2-bluetooth-module/), but Renogy has never released any documentation on how to interrogate these devices.  By using Wireshark on an Android Phone and Renogy's BT app, I was able to decrypt the protocol used.  I built an Arduino library compatible with Adafruit's nrf52 series devices.  This library has been tested successfully with a [Renogy DCC30S device](https://www.renogy.com/dcc30s-12v-30a-dual-input-dc-dc-on-board-battery-charger-with-mppt/), and may work with other Renogy devices if the registers are known and decribed in the library header file.
 
 This library is strictly use at your own risk.  I am not releasing any code on how to write to registers.  Use the Renogy apps (and any validation they provide) for that please.

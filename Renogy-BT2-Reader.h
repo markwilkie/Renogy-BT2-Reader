@@ -1,8 +1,3 @@
-#include "Arduino.h"
-#include "bluefruit.h"
-#include "BT2Reader.h"
-
-
 struct COMMANDS {
 	uint16_t startRegister;
 	uint16_t numberOfRegisters;
@@ -22,9 +17,9 @@ const COMMANDS bt2Commands[8] = {
 
 void setup();
 void loop();
-void scanCallback(ble_gap_evt_adv_report_t* report);
-void connectCallback(uint16_t connectionHandle);
-void disconnectCallback(uint16_t connectionHandle, uint8_t reason);
+void scanCallback(BLEDevice);
+void connectCallback(BLEDevice);
+void disconnectCallback(BLEDevice);
 
 
 

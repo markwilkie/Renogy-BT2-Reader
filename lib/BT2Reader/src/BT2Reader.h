@@ -1,7 +1,7 @@
 #ifndef BT2_READER_H
 #define BT2_READER_H
 
-#include "bluefruit.h"
+#include <ArduinoBLE.h>
 #include <array>
 
 /**	Adafruit nrf52 code for communicating with Renogy DCC series MPPT solar controllers and DC:DC converters
@@ -233,35 +233,35 @@ const RENOGY_OPTIONS_TABLE renogyOptions[] {
 	{RENOGY_AUX_BATT_TYPE, 8, "Lithium Iron Phosphate" }
 };
 
-	struct REGISTER_VALUE {
-		uint16_t registerAddress;
-		uint16_t value;
-		uint32_t lastUpdateMillis = 0;
-	};
+struct REGISTER_VALUE {
+	uint16_t registerAddress;
+	uint16_t value;
+	uint32_t lastUpdateMillis = 0;
+};
 
-	struct DEVICE {
-		uint16_t handle;
-		char peerName[20];
-		uint8_t peerAddress[6];
-		boolean slotNamed = false;
+struct DEVICE {
+	BLEDevice device;
+	char peerName[20];
+	uint8_t peerAddress[6];
+	boolean slotNamed = false;
 
-		uint8_t dataReceived[DEFAULT_DATA_BUFFER_LENGTH];
-		int dataReceivedLength = 0;
-		boolean dataError = false;
-		int registerExpected;
-		boolean newDataAvailable;
+	uint8_t dataReceived[DEFAULT_DATA_BUFFER_LENGTH];
+	int dataReceivedLength = 0;
+	boolean dataError = false;
+	int registerExpected;
+	boolean newDataAvailable;
 
-		REGISTER_VALUE * registerValues;
+	REGISTER_VALUE * registerValues;
 
-		BLEClientService txService = BLEClientService("0000ffD0-0000-1000-8000-00805f9b34fb");				// Renogy service
-		BLEClientCharacteristic txCharacteristic = BLEClientCharacteristic("0000ffD1-0000-1000-8000-00805f9b34fb");		// Renogy Tx and Rx service
+	BLECharacteristic txDeviceCharateristic;
+	BLECharacteristic rxDeviceCharateristic;
 
-		BLEClientService rxService = BLEClientService("0000ffF0-0000-1000-8000-00805f9b34fb");				// Renogy service
-		BLEClientCharacteristic rxCharacteristic = BLEClientCharacteristic("0000ffF1-0000-1000-8000-00805f9b34fb");		// Renogy Tx and Rx service
-	};
+	const char* TX_SERVICE_UUID="0000ffD0-0000-1000-8000-00805f9b34fb"; 
+	const char* TX_CHARACTERISTIC_UUID="0000ffD1-0000-1000-8000-00805f9b34fb";		// Renogy Tx and Rx service
 
-	
-
+	const char* RX_SERVICE_UUID="0000ffF0-0000-1000-8000-00805f9b34fb";				// Renogy service
+	const char* RX_CHARACTERISTIC_UUID="0000ffF1-0000-1000-8000-00805f9b34fb";		// Renogy Tx and Rx service
+};
 
 class BT2Reader {
 
@@ -272,32 +272,30 @@ public:
 	boolean addTargetBT2Device(uint8_t * peerAddress);
 	void begin();
 
-	boolean scanCallback(ble_gap_evt_adv_report_t* report);
-	boolean connectCallback(uint16_t connectionHandle);
-	boolean disconnectCallback(uint16_t connectionHandle, uint8_t reason);
-
-	static void notifyCallbackWrapper(BLEClientCharacteristic* chr, uint8_t* data, uint16_t len);
-	void notifyCallback(BLEClientCharacteristic* chr, uint8_t* data, uint16_t len);
+	boolean notifyCallback(BLEDevice myDevice, BLECharacteristic characteristic);
+	boolean scanCallback(BLEDevice);
+	boolean connectCallback(BLEDevice);
+	boolean disconnectCallback(BLEDevice);
 
 	int getDeviceIndex(char * name);
 	int getDeviceIndex(uint8_t * address);
-	int getDeviceIndex(uint16_t connectionHandle);
-	int getDeviceIndex(BLEClientCharacteristic * characteristic);
+	int getDeviceIndex(BLEDevice);
+	int getDeviceIndex(BLECharacteristic characteristic);
 	
 	DEVICE * getDevice(char * name);
 	DEVICE * getDevice(uint8_t * address);
-	DEVICE * getDevice(uint16_t connectionHandle);
+	DEVICE * getDevice(BLEDevice);
 	DEVICE * getDevice(int index);
 	
 	REGISTER_VALUE * getRegister(char * name, uint16_t registerAddress);
 	REGISTER_VALUE * getRegister(uint8_t * address, uint16_t registerAddress);
-	REGISTER_VALUE * getRegister(uint16_t connectionHandle, uint16_t registerAddress);
+	REGISTER_VALUE * getRegister(BLEDevice, uint16_t registerAddress);
 	REGISTER_VALUE * getRegister(int deviceIndex, uint16_t registerAddress);
 	//REGISTER_VALUE * getRegister(DEVICE * device, uint16_t registerAddress);
 	
 	int printRegister(char * name, uint16_t registerAddress);
 	int printRegister(uint8_t * device, uint16_t registerAddress);
-	int printRegister(uint16_t connectionHandle, uint16_t registerAddress);
+	int printRegister(BLEDevice, uint16_t registerAddress);
 	int printRegister(DEVICE * device, uint16_t registerAddress);
 
 	void printHex(uint8_t * data, int datalen);
@@ -306,12 +304,12 @@ public:
 	
 	void sendReadCommand(uint8_t * address, uint16_t startRegister, uint16_t numberOfRegisters);
 	void sendReadCommand(char * name, uint16_t startRegister, uint16_t numberOfRegisters);
-	void sendReadCommand(uint16_t handle, uint16_t startRegister, uint16_t numberOfRegisters);
+	void sendReadCommand(BLEDevice myDevice, uint16_t startRegister, uint16_t numberOfRegisters);
 	void sendReadCommand(int index, uint16_t startRegister, uint16_t numberOfRegisters);
 		
 	boolean getIsNewDataAvailable(uint8_t * name);
 	boolean getIsNewDataAvailable(char * address);
-	boolean getIsNewDataAvailable(uint16_t connectionHandle);
+	boolean getIsNewDataAvailable(BLEDevice);
 	boolean getIsNewDataAvailable(int index);
 
 	void setLoggingLevel(int i);
@@ -319,7 +317,6 @@ public:
 private:
 
 	const uint16_t BT2_TX_SERVICE = 0xFFD0;
-	const uint16_t BT2_MANUFACTURER_ID = 0x7DE0;
 
 	const char HEX_LOWER_CASE[17] = "0123456789abcdef";
 	const char HEX_UPPER_CASE[17] = "0123456789ABCDEF";
@@ -337,7 +334,7 @@ private:
 	int registerValueSize = 0;
 	int loggingLevel = BT2READER_QUIET;
 
-	boolean appendRenogyPacket(DEVICE * device, uint8_t * data, int dataLen);
+	boolean appendRenogyPacket(DEVICE * device, BLECharacteristic characteristic);
 	uint16_t getProvidedModbusChecksum(uint8_t * data);
 	uint16_t getCalculatedModbusChecksum(uint8_t * data);
 	uint16_t getCalculatedModbusChecksum(uint8_t * data, int start, int end);

@@ -16,9 +16,9 @@ int BT2Reader::printRegister(uint8_t * address, uint16_t registerAddress) {
 	return (printRegister(&deviceTable[getDeviceIndex(address)], registerAddress));
 }
 
-int BT2Reader::printRegister(uint16_t connectionHandle, uint16_t registerAddress) {
-	if (getDeviceIndex(connectionHandle) == -1) { return -1; }
-	return (printRegister(&deviceTable[getDeviceIndex(connectionHandle)], registerAddress));
+int BT2Reader::printRegister(BLEDevice myDevice, uint16_t registerAddress) {
+	if (getDeviceIndex(myDevice) == -1) { return -1; }
+	return (printRegister(&deviceTable[getDeviceIndex(myDevice)], registerAddress));
 }
 
 int BT2Reader::printRegister(DEVICE * device, uint16_t registerAddress) {

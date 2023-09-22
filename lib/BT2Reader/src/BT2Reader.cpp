@@ -1,27 +1,32 @@
 #include "BT2Reader.h"
 
 BT2Reader * BT2Reader::_pointerToBT2ReaderClass = NULL;
+extern void mainNotifyCallback(BLEDevice peripheral, BLECharacteristic characteristic);
 
 
-
-int BT2Reader::setDeviceTableSize(int i) {
+int BT2Reader::setDeviceTableSize(int i) 
+{
 	deviceTableSize = min(max(1, i), MAXIMUM_BT2_DEVICES);
 	deviceTable = new DEVICE[deviceTableSize];
-	for (int i = 0; i < deviceTableSize; i++) {
+	for (int i = 0; i < deviceTableSize; i++) 
+	{
 		memset(deviceTable[i].peerName, 0, 20);
 		memset(deviceTable[i].peerAddress, 0, 6);
 		deviceTable[i].slotNamed = false;
-		deviceTable[i].handle = BLE_CONN_HANDLE_INVALID;
+		//deviceTable[i].device = NULL;
 	}
 	log("deviceTable is %d entries long\n", deviceTableSize);
 	return deviceTableSize;
 }
 
 
-boolean BT2Reader::addTargetBT2Device(char * peerName) {
+boolean BT2Reader::addTargetBT2Device(char * peerName) 
+{
 	if (deviceTableSize == 0) { setDeviceTableSize(1); }
-	for (int i = 0; i < deviceTableSize; i++) {
-		if (!deviceTable[i].slotNamed) {
+	for (int i = 0; i < deviceTableSize; i++) 
+	{
+		if (!deviceTable[i].slotNamed) 
+		{
 			memcpy(deviceTable[i].peerName, peerName, strlen(peerName));
 			deviceTable[i].slotNamed = true;
 			log("added device %s to deviceTable\n", peerName);
@@ -31,10 +36,13 @@ boolean BT2Reader::addTargetBT2Device(char * peerName) {
 	return false;
 }
 
-boolean BT2Reader::addTargetBT2Device(uint8_t * peerAddress) {
+boolean BT2Reader::addTargetBT2Device(uint8_t * peerAddress) 
+{
 	if (deviceTableSize == 0) { setDeviceTableSize(1); }
-	for (int i = 0; i < deviceTableSize; i++) {
-		if (!deviceTable[i].slotNamed) {
+	for (int i = 0; i < deviceTableSize; i++) 
+	{
+		if (!deviceTable[i].slotNamed) 
+		{
 			memcpy(deviceTable[i].peerAddress, peerAddress, 6);
 			deviceTable[i].slotNamed = true;
 			log("Added target peer Address ");
@@ -47,7 +55,8 @@ boolean BT2Reader::addTargetBT2Device(uint8_t * peerAddress) {
 }
 
 
-void BT2Reader::begin() {
+void BT2Reader::begin() 
+{
 	if (deviceTableSize == 0) { setDeviceTableSize(1); }
 	_pointerToBT2ReaderClass = this;
 	registerDescriptionSize = sizeof(registerDescription) / sizeof(registerDescription[0]);
@@ -59,18 +68,11 @@ void BT2Reader::begin() {
 	for (int i = 0; i < deviceTableSize; i++) {
 		DEVICE * device = &deviceTable[i];
 		device->registerValues = new REGISTER_VALUE[registerValueSize];
-		device->handle = BLE_CONN_HANDLE_INVALID;
+		//device->device = NULL;
 		device->dataReceivedLength = 0;
 		device->dataError = false;
 		device->registerExpected = 0;
 		device->newDataAvailable = false;
-		
-		device->txService.begin();
-		device->txCharacteristic.begin();
-
-		device->rxService.begin();
-		device->rxCharacteristic.setNotifyCallback(notifyCallbackWrapper);
-		device->rxCharacteristic.begin();
 
 		int registerValueIndex = 0;
 		for (int j = 0; j < registerValueSize; j++) {
@@ -88,182 +90,172 @@ void BT2Reader::begin() {
 }
 
 
-boolean BT2Reader::scanCallback(ble_gap_evt_adv_report_t* report) {
+boolean BT2Reader::scanCallback(BLEDevice peripheral) 
+{
+	//We're already connected to everything we care about, so ignore
 	if (numberOfConnections == deviceTableSize) { return false; }
 
-	// has service, manufacturer data
-	if (!report->type.scan_response) {
 
-		if (Bluefruit.Scanner.checkReportForService(report, deviceTable[0].txService)) {
-			
-			uint8_t buffer[20];
-			int len = Bluefruit.Scanner.parseReportByType(report, BLE_GAP_AD_TYPE_MANUFACTURER_SPECIFIC_DATA, buffer, 20);
-			if (len == 0 || (buffer[1] * 256 + buffer[0] != BT2_MANUFACTURER_ID)) {
-				return false;
+    // discovered a peripheral, print out address, local name, and advertised service
+	log("BT2Reader: Found device %s at %s with uuuid %s\n",peripheral.localName().c_str(),peripheral.address().c_str(),peripheral.advertisedServiceUuid().c_str());
+
+	for (int i = 0; i < deviceTableSize; i++) 
+	{
+		if (peripheral.localName() == deviceTable[i].peerName
+		 || (memcmp(peripheral.address().c_str(),deviceTable[i].peerAddress, 6) == 0))
+		{
+			if (deviceTable[i].slotNamed) 
+			{
+				log("BT2Reader: Found targeted BT2 device, attempting connection\n");
+				peripheral.connect();
+				return true;
+			} 
+			else 
+			{
+				log("BT2Reader: Found untargeted BT2 device %s entries long\n", peripheral.localName().c_str());
 			}
+		} 
+	}						
 
-			for (int i = 0; i < deviceTableSize; i++) {
-
-				if (memcmp(report->peer_addr.addr, deviceTable[i].peerAddress, 6) == 0) {
-					if (deviceTable[i].slotNamed) {
-						log("BT2Reader: Found targeted BT2 device, attempting connection\n");
-						Bluefruit.Central.connect(report);
-					} else {
-						//log("BT2Reader: Found untargeted BT2 device, will connect once name determined\n");
-					}
-					return true;
-				} else {
-					if (!deviceTable[i].slotNamed
-						&& memcmp(BLANK_MACID, deviceTable[i].peerAddress, 6) == 0) {
-						memcpy(deviceTable[i].peerAddress, report->peer_addr.addr, 6);
-						log("BT2Reader: Found untargeted BT2 device, adding it to deviceTable for future connection\n");
-						return true;
-					}
-				}								
-			}
-		}
-
-		return false;
-
-	} else {
-		uint8_t buffer[20];
-		int len = Bluefruit.Scanner.parseReportByType(report, BLE_GAP_AD_TYPE_COMPLETE_LOCAL_NAME, buffer, 20);
-		
-		if (len > 0) {
-			log("found device named %s", (char *)buffer);
-
-			for (int i = 0; i < deviceTableSize; i++) {
-				if (strcmp((char *)buffer, deviceTable[i].peerName) == 0 
-					|| memcmp(report->peer_addr.addr, deviceTable[i].peerAddress, 6) == 0) {
-					memcpy(deviceTable[i].peerAddress, report->peer_addr.addr, 6);
-					logprintf(", attempting connection\n");
-					Bluefruit.Central.connect(report);
-					return true;
-				}				
-			}
-			logprintf("\n");
-		}
-	}
+	//If we got here, something went wrong
 	return false;
 }
-	
 
 
-boolean BT2Reader::connectCallback(uint16_t connectionHandle) {
-
-	BLEConnection * connection = Bluefruit.Connection(connectionHandle);
-	
-	uint8_t peerAddress[6];
-	memcpy(peerAddress, connection->getPeerAddr().addr, 6);
-	
-	for (int i = 0; i < deviceTableSize; i++) {
-		if (memcmp(peerAddress, deviceTable[i].peerAddress, 6) != 0) { continue; }
-
+boolean BT2Reader::connectCallback(BLEDevice myDevice) 
+{
+	//Loop through our devices
+	for (int i = 0; i < deviceTableSize; i++) 
+	{
 		DEVICE * device = &deviceTable[i];
-		if (device->txService.discover(connectionHandle) && device->txCharacteristic.discover()) {
-			//Serial.print("Renogy Tx service and characteristic discovered:\n");
-			//printUuid((uint8_t * )device->txService.uuid._uuid128, 16);
-			//printUuid((uint8_t * )device->txCharacteristic.uuid._uuid128, 16);
-		} else {
+		if(myDevice.discoverService(device->TX_SERVICE_UUID))
+		{
+			Serial.println("Renogy Tx service discovered");
+			if(device->txDeviceCharateristic=myDevice.characteristic(device->TX_CHARACTERISTIC_UUID))
+			{
+				Serial.println("Renogy Tx characteristic found!");
+			}
+		} 
+		else 
+		{
 			logerror("Renogy Tx service or characteristic not discovered, disconnecting\n");
-			Bluefruit.disconnect(connectionHandle);
+			myDevice.disconnect();
 			return true;
 		}
 
-		if (device->rxService.discover(connectionHandle) && device->rxCharacteristic.discover()) {
-			//Serial.print("Renogy Rx service and characteristic discovered:\n");
-			//printUuid((uint8_t * )device->rxService.uuid._uuid128, 16);
-			//printUuid((uint8_t * )device->rxCharacteristic.uuid._uuid128, 16);		
-			device->rxCharacteristic.enableNotify();
-			//Serial.print("Renogy Rx characteristic notify enabled:\n");
-			
-		} else {
+		if(myDevice.discoverService(device->RX_SERVICE_UUID))
+		{
+			Serial.println("Renogy Rx service discovered");
+			if(device->rxDeviceCharateristic=myDevice.characteristic(device->RX_CHARACTERISTIC_UUID))
+			{
+				if(device->rxDeviceCharateristic.canSubscribe() && device->rxDeviceCharateristic.subscribe())
+				{
+					device->rxDeviceCharateristic.setEventHandler(BLEWritten, mainNotifyCallback);
+					Serial.println("Renogy Rx characteristic found and subscribed to!");
+				} 
+			}
+		} 
+		else 
+		{
 			logerror("Renogy Rx service or characteristic not discovered, disconnecting\n");
-			Bluefruit.disconnect(connectionHandle);
+			myDevice.disconnect();
 			return true;
 		}
 
-		device->handle = connectionHandle;
-		connection->getPeerName(device->peerName, 20);
+		device->device = myDevice;
 		numberOfConnections++;
-		log("Connected to device %s, active connections = %d\n", device->peerName, numberOfConnections);
+		log("Connected to device %s, active connections = %d\n", device->device.localName().c_str(), numberOfConnections);
 		return true;
 	}
 	return false;
 }
 
-boolean BT2Reader::disconnectCallback(uint16_t connectionHandle, uint8_t reason) {
+boolean BT2Reader::disconnectCallback(BLEDevice myDevice) {
 	
-	for (int i = 0; i < deviceTableSize; i++) {
-		if (deviceTable[i].handle == connectionHandle) {
-			deviceTable[i].handle = BLE_CONN_HANDLE_INVALID;
-			if (!deviceTable[i].slotNamed) {
+	for (int i = 0; i < deviceTableSize; i++) 
+	{
+		if (deviceTable[i].device == myDevice) 
+		{
+			//deviceTable[i].device = NULL;
+			if (!deviceTable[i].slotNamed) 
+			{
 				memset(deviceTable[i].peerAddress, 0, 6);
 				memset(deviceTable[i].peerName, 0, 20);
 			}
 		}
 		numberOfConnections--;
-		log("Disconnected, reason = 0x%02X, active connections = %d\n", reason, numberOfConnections);
+		log("Disconnected, active connections = %d\n", numberOfConnections);
 		return true;
 	}
 	return false;
 }
 
 
-void BT2Reader::notifyCallbackWrapper(BLEClientCharacteristic * rxCharacteristic, uint8_t* data, uint16_t len) {
-	_pointerToBT2ReaderClass->notifyCallback(rxCharacteristic, data, len);
-}
+boolean BT2Reader::notifyCallback(BLEDevice myDevice, BLECharacteristic characteristic) {
 
-void BT2Reader::notifyCallback(BLEClientCharacteristic * rxCharacteristic, uint8_t* data, uint16_t len) {
-
-	int index = getDeviceIndex(rxCharacteristic);
-	if (index < 0) {
+	int index = getDeviceIndex(characteristic);
+	if (index < 0) 
+	{
 		logerror("renogyNotifyCallback; characteristic not found in device table\n");
-		return;
+		return false;
 	}
 
 	DEVICE * device = &deviceTable[index];
 
-	if (device->dataError) { return; }									// don't append anything if there's already an error
+	if (device->dataError) { return false; }									// don't append anything if there's already an error
 
-	if (device->dataReceivedLength > 0 || data[0] == 0xFF) {
-		device->dataError = !appendRenogyPacket(device, data, len);		// append second or greater packet
-	}
+	//Read data
+	device->dataError = !appendRenogyPacket(device, characteristic);		// append second or greater packet
 
-	if (!device->dataError && device->dataReceivedLength == getExpectedLength(device->dataReceived)) {
-
-		if (getIsReceivedDataValid(device->dataReceived)) {
+	if (!device->dataError && device->dataReceivedLength == getExpectedLength(device->dataReceived)) 
+	{
+		if (getIsReceivedDataValid(device->dataReceived)) 
+		{
 			//Serial.printf("Complete datagram of %d bytes, %d registers (%d packets) received:\n", 
 			//	device->dataReceivedLength, device->dataReceived[2], device->dataReceivedLength % 20 + 1);
 			//printHex(device->dataReceived, device->dataReceivedLength);
 			processDataReceived(device);
 
-			char bt2Response[21] = "main recv data[XX] [";
-			for (int i = 0; i < device->dataError; i+= 20) {
+			uint8_t bt2Response[21] = "main recv data[XX] [";
+			for (int i = 0; i < device->dataError; i+= 20) 
+			{
 				bt2Response[15] = HEX_LOWER_CASE[(device->dataReceived[i] / 16) & 0x0F];
 				bt2Response[16] = HEX_LOWER_CASE[(device->dataReceived[i]) & 0x0F];
-				//Serial.printf("Sending response #%d to BT2: %s\n", i, bt2Response);
-				device->txCharacteristic.write(bt2Response, 20);
+				Serial.printf("Sending response #%d to BT2: %s\n", i, bt2Response);
+				device->txDeviceCharateristic.writeValue(bt2Response, 20);
 			}
-		} else {
-			//Serial.printf("Checksum error: received is 0x%04X, calculated is 0x%04X\n", 
-			//	getProvidedModbusChecksum(device->dataReceived), getCalculatedModbusChecksum(device->dataReceived));
+		} 
+		else 
+		{
+			Serial.printf("Checksum error: received is 0x%04X, calculated is 0x%04X\n", 
+				getProvidedModbusChecksum(device->dataReceived), getCalculatedModbusChecksum(device->dataReceived));
+
+			return false;
 		}
 	} 
+
+	return true;
 }
 
 
 /** Appends received data.  Returns false if there's potential for buffer overrun, true otherwise
  */
-boolean BT2Reader::appendRenogyPacket(DEVICE * device, uint8_t * data, int dataLen) {
-	if (dataLen + device->dataReceivedLength >= DEFAULT_DATA_BUFFER_LENGTH -1) {
+boolean BT2Reader::appendRenogyPacket(DEVICE * device, BLECharacteristic characteristic) 
+{
+	int dataLen=characteristic.valueLength();
+	if(dataLen<0)
+		return true;
+
+	if (dataLen + device->dataReceivedLength >= DEFAULT_DATA_BUFFER_LENGTH -1) 
+	{
 		logerror("BT2Reader: Buffer overrun receiving data\n");
 		return false;
-		}
-	memcpy(&device->dataReceived[device->dataReceivedLength], data, dataLen);
-	//for (int i = 0; i < dataLen; i++) { device->dataReceived[device->dataReceivedLength++] = data[i]; }
+	}
+
+	characteristic.readValue(&device->dataReceived[device->dataReceivedLength],dataLen);
 	device->dataReceivedLength += dataLen;
-	if (getExpectedLength(device->dataReceived) < device->dataReceivedLength) {
+	if (getExpectedLength(device->dataReceived) < device->dataReceivedLength) 
+	{
 		logerror("BT2Reader: Buffer overrun receiving data\n");
 		return false;
 	}
@@ -291,12 +283,14 @@ void BT2Reader::processDataReceived(DEVICE * device) {
 
 void BT2Reader::sendReadCommand(char * name, uint16_t startRegister, uint16_t numberOfRegisters) { sendReadCommand(getDeviceIndex(name), startRegister, numberOfRegisters); }
 void BT2Reader::sendReadCommand(uint8_t * address, uint16_t startRegister, uint16_t numberOfRegisters) { sendReadCommand(getDeviceIndex(address), startRegister, numberOfRegisters); }
-void BT2Reader::sendReadCommand(uint16_t handle, uint16_t startRegister, uint16_t numberOfRegisters) { sendReadCommand(getDeviceIndex(handle), startRegister, numberOfRegisters); }
-void BT2Reader::sendReadCommand(int index, uint16_t startRegister, uint16_t numberOfRegisters) {
+void BT2Reader::sendReadCommand(BLEDevice myDevice, uint16_t startRegister, uint16_t numberOfRegisters) { sendReadCommand(getDeviceIndex(myDevice), startRegister, numberOfRegisters); }
+void BT2Reader::sendReadCommand(int index, uint16_t startRegister, uint16_t numberOfRegisters) 
+{
 	if (index == -1) {
 		logerror("SendReadCommand: invalid name, mac address, or index provided\n");
 		return;
 	}
+
 	uint8_t command[20];
 	command[0] = 0xFF;
 	command[1] = 0x03;
@@ -313,7 +307,7 @@ void BT2Reader::sendReadCommand(int index, uint16_t startRegister, uint16_t numb
 	logprintf("\n");
 
 	DEVICE * device = &deviceTable[index];
-	device->txCharacteristic.write(command, 8);
+	device->txDeviceCharateristic.writeValue(command, 8);
 	device->registerExpected = startRegister;
 	device->dataReceivedLength = 0;
 	device->dataError = false;
@@ -354,9 +348,9 @@ int BT2Reader::getRegisterDescriptionIndex(uint16_t registerAddress) {
 
 int BT2Reader::getExpectedLength(uint8_t * data) { return data[2] + 5; }
 
-int BT2Reader::getDeviceIndex(uint16_t connectionHandle) {
+int BT2Reader::getDeviceIndex(BLEDevice myDevice) {
 	for (int i = 0; i < deviceTableSize; i++) {
-			if (connectionHandle == deviceTable[i].handle) { return i; }
+			if (myDevice == deviceTable[i].device) { return i; }
 		}
 	return -1;
 }
@@ -375,17 +369,17 @@ int BT2Reader::getDeviceIndex(uint8_t * address) {
 	return -1;
 }
 
-int BT2Reader::getDeviceIndex(BLEClientCharacteristic * characteristic) {
+int BT2Reader::getDeviceIndex(BLECharacteristic characteristic) {
 	for (int i = 0; i < deviceTableSize; i++) {
-		if (characteristic == &deviceTable[i].txCharacteristic) { return i; }
-		if (characteristic == &deviceTable[i].rxCharacteristic) { return i; }
+		if (characteristic == deviceTable[i].txDeviceCharateristic) { return i; }
+		if (characteristic == deviceTable[i].txDeviceCharateristic) { return i; }
 	}
 	return -1;
 }
 
 REGISTER_VALUE * BT2Reader::getRegister(char * name, uint16_t registerAddress) { return (getRegister(getDeviceIndex(name), registerAddress)); }
 REGISTER_VALUE * BT2Reader::getRegister(uint8_t * address, uint16_t registerAddress) { return (getRegister(getDeviceIndex(address), registerAddress)); }
-REGISTER_VALUE * BT2Reader::getRegister(uint16_t connectionHandle, uint16_t registerAddress) { return (getRegister(getDeviceIndex(connectionHandle), registerAddress)); }
+REGISTER_VALUE * BT2Reader::getRegister(BLEDevice myDevice, uint16_t registerAddress) { return (getRegister(getDeviceIndex(myDevice), registerAddress)); }
 REGISTER_VALUE * BT2Reader::getRegister(int deviceIndex, uint16_t registerAddress) {
 	if (deviceIndex < 0) { return &invalidRegister; }
 	int registerValueIndex = getRegisterValueIndex(&deviceTable[deviceIndex], registerAddress);
@@ -395,7 +389,7 @@ REGISTER_VALUE * BT2Reader::getRegister(int deviceIndex, uint16_t registerAddres
 
 boolean BT2Reader::getIsNewDataAvailable(char * name) { return (getIsNewDataAvailable(getDeviceIndex(name))); }
 boolean BT2Reader::getIsNewDataAvailable(uint8_t * address) { return (getIsNewDataAvailable(getDeviceIndex(address))); }
-boolean BT2Reader::getIsNewDataAvailable(uint16_t connectionHandle) { return (getIsNewDataAvailable(getDeviceIndex(connectionHandle))); }
+boolean BT2Reader::getIsNewDataAvailable(BLEDevice myDevice) { return (getIsNewDataAvailable(getDeviceIndex(myDevice))); }
 boolean BT2Reader::getIsNewDataAvailable(int index) {
 	if (index == -1) { return false; }
 	boolean isNewDataAvailable = deviceTable[index].newDataAvailable;
@@ -405,7 +399,7 @@ boolean BT2Reader::getIsNewDataAvailable(int index) {
 
 DEVICE * BT2Reader::getDevice(char * name) { return (getDevice(getDeviceIndex(name))); }
 DEVICE * BT2Reader::getDevice(uint8_t * address) { return (getDevice(getDeviceIndex(address))); }
-DEVICE * BT2Reader::getDevice(uint16_t connectionHandle) { return (getDevice(getDeviceIndex(connectionHandle))); }
+DEVICE * BT2Reader::getDevice(BLEDevice myDevice) { return (getDevice(getDeviceIndex(myDevice))); }
 DEVICE * BT2Reader::getDevice(int index) { 
 	if (index == -1) { return NULL; }
 	return (&deviceTable[index]);
