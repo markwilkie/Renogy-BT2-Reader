@@ -251,16 +251,20 @@ struct DEVICE {
 	int registerExpected;
 	boolean newDataAvailable;
 
-	REGISTER_VALUE * registerValues;
+	REGISTER_VALUE registerValues[50];
 
 	BLECharacteristic txDeviceCharateristic;
 	BLECharacteristic rxDeviceCharateristic;
 
-	const char* TX_SERVICE_UUID="0000ffD0-0000-1000-8000-00805f9b34fb"; 
-	const char* TX_CHARACTERISTIC_UUID="0000ffD1-0000-1000-8000-00805f9b34fb";		// Renogy Tx and Rx service
+	//const char* TX_SERVICE_UUID="0000ffD0-0000-1000-8000-00805f9b34fb"; 
+	//const char* TX_CHARACTERISTIC_UUID="0000ffD1-0000-1000-8000-00805f9b34fb";
+	const char* TX_SERVICE_UUID="ffd0";
+	const char* TX_CHARACTERISTIC_UUID="ffd1";		// Renogy Tx and Rx service
 
-	const char* RX_SERVICE_UUID="0000ffF0-0000-1000-8000-00805f9b34fb";				// Renogy service
-	const char* RX_CHARACTERISTIC_UUID="0000ffF1-0000-1000-8000-00805f9b34fb";		// Renogy Tx and Rx service
+	//const char* RX_SERVICE_UUID="0000ffF0-0000-1000-8000-00805f9b34fb";				// Renogy service
+	//const char* RX_CHARACTERISTIC_UUID="0000ffF1-0000-1000-8000-00805f9b34fb";		// Renogy Tx and Rx service
+	const char* RX_SERVICE_UUID="fff0";				// Renogy service
+	const char* RX_CHARACTERISTIC_UUID="fff1";		// Renogy Tx and Rx service
 };
 
 class BT2Reader {
@@ -328,7 +332,7 @@ private:
 	static BT2Reader * _pointerToBT2ReaderClass;
 	int numberOfConnections = 0;
 	
-	DEVICE * deviceTable;
+	DEVICE deviceTable[MAXIMUM_BT2_DEVICES];
 	int deviceTableSize = 0;
 	int registerDescriptionSize = 0;
 	int registerValueSize = 0;

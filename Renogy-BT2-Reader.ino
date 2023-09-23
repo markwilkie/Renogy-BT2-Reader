@@ -21,13 +21,14 @@
 char * RENOGY_DEVICE_NAME = "BT-TH-66F94E1C    ";
 BLEDevice myDevice;
 BT2Reader bt2Reader;
-int ticker = 0;
+long lastChecked=0;
+int commandSequenceToSend=0;
 
 
 void setup() 
 {
 	Serial.begin(115200);
-	delay(100);
+	delay(3000);
 	Serial.println("ArduinoBLE (via ESP32-S3) connecting to Renogy BT-2 code example");
 	Serial.println("-----------------------------------------------------\n");
 	if (!BLE.begin()) 
@@ -38,19 +39,18 @@ void setup()
 	BLE.setDeviceName("BT2 Reader");
 
 	//Set callback functions
+	BLE.setEventHandler(BLEDiscovered, scanCallback);
 	BLE.setEventHandler(BLEConnected, connectCallback);
 	BLE.setEventHandler(BLEDisconnected, disconnectCallback);	
-	BLE.setEventHandler(BLEDiscovered, scanCallback);
 
-	//bt2Reader.setDeviceTableSize(1);
+	bt2Reader.setLoggingLevel(BT2READER_VERBOSE);
 	bt2Reader.addTargetBT2Device(RENOGY_DEVICE_NAME);
-	bt2Reader.setLoggingLevel(BT2READER_ERRORS_ONLY);
 	bt2Reader.begin();
 
 	// start scanning for peripherals
 	delay(2000);
 	Serial.println("About to start scanning");	
-	BLE.scan();
+	BLE.scan();  //scan with dupliates
 }
 
 
@@ -72,7 +72,7 @@ void connectCallback(BLEDevice peripheral)
 	{
 		myDevice = peripheral;
 		Serial.print("Connected to BT2 device ");
-		Serial.println(myDevice.localName());
+		Serial.println(peripheral.localName());
 	}
 }
 
@@ -90,25 +90,29 @@ void mainNotifyCallback(BLEDevice peripheral, BLECharacteristic characteristic)
 {
 	if (bt2Reader.notifyCallback(peripheral,characteristic)) 
 	{
-		Serial.print("Character notify from ");
+		Serial.print("Characteristic notify from ");
 		Serial.println(peripheral.localName());
 	}
 }
 
 void loop() 
 {
-	Serial.printf("Tick %03d: \n",ticker);
+	BLE.poll();
 
-	if (myDevice) 
+	if (myDevice && millis()>lastChecked+5000) 
 	{
-		int commandSequenceToSend = (ticker % 8);	
+		lastChecked=millis();
+
 		uint16_t startRegister = bt2Commands[commandSequenceToSend].startRegister;
 		uint16_t numberOfRegisters = bt2Commands[commandSequenceToSend].numberOfRegisters;
 		uint32_t sendReadCommandTime = millis();
 		bt2Reader.sendReadCommand(myDevice, startRegister, numberOfRegisters);
+		commandSequenceToSend++;
+		if(commandSequenceToSend>7)  commandSequenceToSend=0;
 
 		while (!bt2Reader.getIsNewDataAvailable(myDevice) && (millis() - sendReadCommandTime < 5000)) 
 		{
+			BLE.poll();
 			delay(2);
 		}
 
@@ -140,8 +144,5 @@ void loop()
 				bt2Reader.printRegister(myDevice, startRegister + i);
 			}
 		}
-		ticker++;
 	}
-	
-	delay(5000);
 }

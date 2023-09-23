@@ -7,7 +7,7 @@ extern void mainNotifyCallback(BLEDevice peripheral, BLECharacteristic character
 int BT2Reader::setDeviceTableSize(int i) 
 {
 	deviceTableSize = min(max(1, i), MAXIMUM_BT2_DEVICES);
-	deviceTable = new DEVICE[deviceTableSize];
+	//deviceTable = new DEVICE[deviceTableSize];
 	for (int i = 0; i < deviceTableSize; i++) 
 	{
 		memset(deviceTable[i].peerName, 0, 20);
@@ -63,25 +63,26 @@ void BT2Reader::begin()
 	registerValueSize = 0;
 	for (int i = 0; i < registerDescriptionSize; i++) { registerValueSize += (registerDescription[i].bytesUsed / 2); }
 
-	log("BT2Reader: registerDescription is %d entries, registerValue is %d entries\n", registerDescriptionSize, registerValueSize);
+	log("Register Description is %d entries, registerValue is %d entries\n", registerDescriptionSize, registerValueSize);
 
 	for (int i = 0; i < deviceTableSize; i++) {
 		DEVICE * device = &deviceTable[i];
-		device->registerValues = new REGISTER_VALUE[registerValueSize];
+		//device->registerValues = new REGISTER_VALUE[registerValueSize];
 		//device->device = NULL;
 		device->dataReceivedLength = 0;
 		device->dataError = false;
 		device->registerExpected = 0;
 		device->newDataAvailable = false;
 
-		int registerValueIndex = 0;
-		for (int j = 0; j < registerValueSize; j++) {
+		for (int j = 0; j < registerDescriptionSize; j++) {
 			int registerLength = registerDescription[j].bytesUsed / 2;
 			int registerAddress = registerDescription[j].address;
+
 			for (int k = 0; k < registerLength; k++) {
-				device->registerValues[registerValueIndex].lastUpdateMillis = 0;
-				device->registerValues[registerValueIndex].value = 0;
-				device->registerValues[registerValueIndex++].registerAddress = registerAddress++;
+				device->registerValues[j+k].lastUpdateMillis = 0;
+				device->registerValues[j+k].value = 0;
+				device->registerValues[j+k].registerAddress = registerAddress;
+				registerAddress++;
 			}
 		}
 	}
@@ -95,9 +96,8 @@ boolean BT2Reader::scanCallback(BLEDevice peripheral)
 	//We're already connected to everything we care about, so ignore
 	if (numberOfConnections == deviceTableSize) { return false; }
 
-
     // discovered a peripheral, print out address, local name, and advertised service
-	log("BT2Reader: Found device %s at %s with uuuid %s\n",peripheral.localName().c_str(),peripheral.address().c_str(),peripheral.advertisedServiceUuid().c_str());
+	log("Found device %s at %s with uuuid %s\n",peripheral.localName().c_str(),peripheral.address().c_str(),peripheral.advertisedServiceUuid().c_str());
 
 	for (int i = 0; i < deviceTableSize; i++) 
 	{
@@ -106,13 +106,13 @@ boolean BT2Reader::scanCallback(BLEDevice peripheral)
 		{
 			if (deviceTable[i].slotNamed) 
 			{
-				log("BT2Reader: Found targeted BT2 device, attempting connection\n");
+				log("Found targeted BT2 device, attempting connection\n");
 				peripheral.connect();
 				return true;
 			} 
 			else 
 			{
-				log("BT2Reader: Found untargeted BT2 device %s entries long\n", peripheral.localName().c_str());
+				log("Found untargeted BT2 device %s entries long\n", peripheral.localName().c_str());
 			}
 		} 
 	}						
@@ -124,21 +124,39 @@ boolean BT2Reader::scanCallback(BLEDevice peripheral)
 
 boolean BT2Reader::connectCallback(BLEDevice myDevice) 
 {
+	numberOfConnections++;
+	log("Connected to device %s, active connections = %d\n", myDevice.localName().c_str(), numberOfConnections);
+	
+	//stop scanning?
+	if(numberOfConnections==deviceTableSize)
+	{
+		log("All targetting devices connected.  Stopping scanning\n");
+		BLE.stopScan();
+	}
+
 	//Loop through our devices
 	for (int i = 0; i < deviceTableSize; i++) 
 	{
 		DEVICE * device = &deviceTable[i];
+		device->device = myDevice;
 		if(myDevice.discoverService(device->TX_SERVICE_UUID))
 		{
-			Serial.println("Renogy Tx service discovered");
-			if(device->txDeviceCharateristic=myDevice.characteristic(device->TX_CHARACTERISTIC_UUID))
+			log("Renogy Tx service %s discovered\n",device->TX_SERVICE_UUID);
+			device->txDeviceCharateristic=myDevice.characteristic(device->TX_CHARACTERISTIC_UUID);
+			if(device->txDeviceCharateristic)
 			{
 				Serial.println("Renogy Tx characteristic found!");
+			}
+			else
+			{
+				logerror("Renogy Tx characteristic not discovered, disconnecting\n");
+				myDevice.disconnect();
+				return true;
 			}
 		} 
 		else 
 		{
-			logerror("Renogy Tx service or characteristic not discovered, disconnecting\n");
+			logerror("Renogy Tx service not discovered, disconnecting\n");
 			myDevice.disconnect();
 			return true;
 		}
@@ -161,10 +179,6 @@ boolean BT2Reader::connectCallback(BLEDevice myDevice)
 			myDevice.disconnect();
 			return true;
 		}
-
-		device->device = myDevice;
-		numberOfConnections++;
-		log("Connected to device %s, active connections = %d\n", device->device.localName().c_str(), numberOfConnections);
 		return true;
 	}
 	return false;
@@ -184,7 +198,8 @@ boolean BT2Reader::disconnectCallback(BLEDevice myDevice) {
 			}
 		}
 		numberOfConnections--;
-		log("Disconnected, active connections = %d\n", numberOfConnections);
+		log("Disconnected, active connections = %d.  Starting scan again\n", numberOfConnections);
+		BLE.scan();
 		return true;
 	}
 	return false;
@@ -248,7 +263,7 @@ boolean BT2Reader::appendRenogyPacket(DEVICE * device, BLECharacteristic charact
 
 	if (dataLen + device->dataReceivedLength >= DEFAULT_DATA_BUFFER_LENGTH -1) 
 	{
-		logerror("BT2Reader: Buffer overrun receiving data\n");
+		logerror("Buffer overrun receiving data\n");
 		return false;
 	}
 
@@ -256,7 +271,7 @@ boolean BT2Reader::appendRenogyPacket(DEVICE * device, BLECharacteristic charact
 	device->dataReceivedLength += dataLen;
 	if (getExpectedLength(device->dataReceived) < device->dataReceivedLength) 
 	{
-		logerror("BT2Reader: Buffer overrun receiving data\n");
+		logerror("Buffer overrun receiving data\n");
 		return false;
 	}
 	return true;

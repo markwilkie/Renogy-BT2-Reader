@@ -1,0 +1,172 @@
+---- Opened the serial port COM12 ----
+ArduinoBLE (via ESP32-S3) connecting to Renogy BT-2 code example
+-----------------------------------------------------
+
+BT2Reader: Setting logging level to VERBOSE
+BT2Reader: deviceTable is 1 entries long
+BT2Reader: added device BT-TH-66F94E1C     to devBT2Reader: Found device  at 3e:39:23:8c:df:25 with uuuid 
+BT2Reader: Connected to device , active connections = 1
+BT2Reader: All targetting devices connected.  Stopping scanning
+BT2Reader: Renogy Tx service ffd0 discovered
+Renogy Tx characteristic found!
+Renogy Rx service discovered
+Renogy Rx characteristic found and subscribed to!
+Connected to BT2 device 
+BT2Reader: Sending command sequence: FF 03 00 0C 00 02 11 D6 
+Characteristic notify from 
+Received response for 2 registers 0x000C - 0x000D in 78ms: FF 03 04 20 20 52 42 52 A7
+Register 0x000C contains 8224
+Register 0x000D contains 0
+BT2Reader:BT-TH-66F94E1C    :                       Product model (000C):   
+BT2Reader: Sending command sequence: FF 03 00 0C 00 08 91 D1 
+Characteristic notify from 
+Received response for 8 registers 0x000C - 0x0013 in 68ms: FF 03 10 20 20 52 42 43 35 30 44 31 53 2D 47 31 20 20 20 82 FF
+Register 0x000C contains 8224
+Register 0x000D contains 0
+Register 0x000E contains 0
+Register 0x000F contains 0
+Register 0x0010 contains 0
+Register 0x0011 contains 0
+Register 0x0012 contains 0
+Register 0x0013 contains 0
+BT2Reader:BT-TH-66F94E1C    :                       Product model (000C):   
+BT2Reader: Sending command sequence: FF 03 00 14 00 04 11 D3 
+Characteristic notify from 
+Received response for 4 registers 0x0014 - 0x0017 in 55ms: FF 03 08 00 02 02 00 00 02 02 00 20 BE
+Register 0x0014 contains 2
+Register 0x0015 contains 0
+Register 0x0016 contains 2
+Register 0x0017 contains 0
+BT2Reader:BT-TH-66F94E1C    :                    Software version (0014): 00 02 00 02 
+BT2Reader:BT-TH-66F94E1C    :                    Hardware version (0016): 00 02 00 00 
+BT2Reader: Sending command sequence: FF 03 00 18 00 03 90 12 
+Characteristic notify from 
+Received response for 3 registers 0x0018 - 0x001A in 54ms: FF 03 06 15 0C 00 01 00 60 2A 3D
+Register 0x0018 contains 5388
+Register 0x0019 contains 0
+Register 0x001A contains 96
+BT2Reader:BT-TH-66F94E1C    :                       Serial number (0018): 15 0C 00 60 
+BT2Reader:BT-TH-66F94E1C    :                  Controller address (001A): 00 60 
+BT2Reader: Sending command sequence: FF 03 01 00 00 07 10 2A 
+Characteristic notify from 
+Received response for 7 registers 0x0100 - 0x0106 in 73ms: FF 03 0E 00 64 00 84 00 49 1A 19 00 80 00 00 00 00 AF 6C
+Register 0x0100 contains 100
+Register 0x0101 contains 132
+Register 0x0102 contains 73
+Register 0x0103 contains 6681
+Register 0x0104 contains 128
+Register 0x0105 contains 0
+Register 0x0106 contains 0
+BT2Reader:BT-TH-66F94E1C    :                    Aux battery SOC% (0100):   100
+BT2Reader:BT-TH-66F94E1C    :                 Aux battery voltage (0101):  13.2 Volts
+BT2Reader:BT-TH-66F94E1C    :                  Max charge current (0102):  0.73 Amps
+BT2Reader:BT-TH-66F94E1C    : Aux battery, controller temperature (0103): +25 C, +26 C, 
+BT2Reader:BT-TH-66F94E1C    :                  Alternator voltage (0104):  12.8 Volts
+BT2Reader:BT-TH-66F94E1C    :                  Alternator current (0105):  0.00 Amps
+BT2Reader:BT-TH-66F94E1C    :            Alternator power (Watts) (0106):     0
+BT2Reader: Sending command sequence: FF 03 01 07 00 04 E1 EA 
+Characteristic notify from 
+Received response for 4 registers 0x0107 - 0x010A in 72ms: FF 03 08 00 A8 00 37 00 0A 00 00 5E 30
+Register 0x0107 contains 168
+Register 0x0108 contains 55
+Register 0x0109 contains 10
+Register 0x010A contains 0
+BT2Reader:BT-TH-66F94E1C    :                       Solar Voltage (0107):  16.8 Volts
+BT2Reader:BT-TH-66F94E1C    :                       Solar current (0108):  0.55 Amps
+BT2Reader:BT-TH-66F94E1C    :                 Solar power (Watts) (0109):    10
+BT2Reader: Sending command sequence: FF 03 01 20 00 03 10 23 
+Characteristic notify from 
+Received response for 3 registers 0x0120 - 0x0122 in 61ms: FF 03 06 00 02 00 00 00 00 10 D1
+Register 0x0120 contains 0
+Register 0x0121 contains 0
+Register 0x0122 contains 0
+BT2Reader: Sending command sequence: FF 03 E0 01 00 21 F6 0C 
+Characteristic notify from 
+Received response for 33 registers 0xE001 - 0xE021 in 122ms: FF 03 42 0B B8 00 C8 0C 0C 00 00 00 96 00 9B 00 92 00 92 00 8A 00 84 00 7E 00 79 00 6F 00 6A 64 32 00 05 00 00 00 0F 00 00 00 00 00 04 00 64 00 00 00 46 00 04 00 32 14 00 00 14 00 10 00 05 00 05 00 00 00 00 CC 15
+Register 0xE001 contains 0
+Register 0xE002 contains 0
+Register 0xE003 contains 0
+Register 0xE004 contains 0
+Register 0xE005 contains 0
+Register 0xE006 contains 0
+Register 0xE007 contains 0
+Register 0xE008 contains 0
+Register 0xE009 contains 0
+Register 0xE00A contains 0
+Register 0xE00B contains 0
+Register 0xE00C contains 0
+Register 0xE00D contains 0
+Register 0xE00E contains 0
+Register 0xE00F contains 0
+Register 0xE010 contains 0
+Register 0xE011 contains 0
+Register 0xE012 contains 0
+Register 0xE013 contains 0
+Register 0xE014 contains 0
+Register 0xE015 contains 0
+Register 0xE016 contains 0
+Register 0xE017 contains 0
+Register 0xE018 contains 0
+Register 0xE019 contains 0
+Register 0xE01A contains 0
+Register 0xE01B contains 0
+Register 0xE01C contains 0
+Register 0xE01D contains 0
+Register 0xE01E contains 0
+Register 0xE01F contains 0
+Register 0xE020 contains 0
+Register 0xE021 contains 0
+BT2Reader: Sending command sequence: FF 03 00 0C 00 02 11 D6 
+Characteristic notify from 
+Received response for 2 registers 0x000C - 0x000D in 59ms: FF 03 04 20 20 52 42 52 A7
+Register 0x000C contains 8224
+Register 0x000D contains 0
+BT2Reader:BT-TH-66F94E1C    :                       Product model (000C):   
+                                                                            `d�I
+BT2Reader: Sending command sequence: FF 03 00 0C 00 08 91 D1 
+Characteristic notify from 
+Received response for 8 registers 0x000C - 0x0013 in 70ms: FF 03 10 20 20 52 42 43 35 30 44 31 53 2D 47 31 20 20 20 82 FF
+Register 0x000C contains 8224
+Register 0x000D contains 0
+Register 0x000E contains 0
+Register 0x000F contains 0
+Register 0x0010 contains 0
+Register 0x0011 contains 0
+Register 0x0012 contains 0
+Register 0x0013 contains 0
+BT2Reader:BT-TH-66F94E1C    :                       Product model (000C):   
+                                                                            `d�I
+BT2Reader: Sending command sequence: FF 03 00 14 00 04 11 D3 
+Characteristic notify from 
+Received response for 4 registers 0x0014 - 0x0017 in 57ms: FF 03 08 00 02 02 00 00 02 02 00 20 BE
+Register 0x0014 contains 2
+Register 0x0015 contains 0
+Register 0x0016 contains 2
+Register 0x0017 contains 0
+BT2Reader:BT-TH-66F94E1C    :                    Software version (0014): 00 02 00 02 
+BT2Reader:BT-TH-66F94E1C    :                    Hardware version (0016): 00 02 15 0C 
+BT2Reader: Sending command sequence: FF 03 00 18 00 03 90 12 
+Characteristic notify from 
+Received response for 3 registers 0x0018 - 0x001A in 56ms: FF 03 06 15 0C 00 01 00 60 2A 3D
+Register 0x0018 contains 5388
+Register 0x0019 contains 0
+Register 0x001A contains 96
+BT2Reader:BT-TH-66F94E1C    :                       Serial number (0018): 15 0C 00 60 
+BT2Reader:BT-TH-66F94E1C    :                  Controller address (001A): 00 60 
+BT2Reader: Sending command sequence: FF 03 01 00 00 07 10 2A 
+Characteristic notify from 
+Received response for 7 registers 0x0100 - 0x0106 in 65ms: FF 03 0E 00 64 00 84 00 46 1A 19 00 80 00 00 00 00 EE 9C
+Register 0x0100 contains 100
+Register 0x0101 contains 132
+Register 0x0102 contains 70
+Register 0x0103 contains 6681
+Register 0x0104 contains 128
+Register 0x0105 contains 0
+Register 0x0106 contains 0
+BT2Reader:BT-TH-66F94E1C    :                    Aux battery SOC% (0100):   100
+BT2Reader:BT-TH-66F94E1C    :                 Aux battery voltage (0101):  13.2 Volts
+BT2Reader:BT-TH-66F94E1C    :                  Max charge current (0102):  0.70 Amps
+BT2Reader:BT-TH-66F94E1C    : Aux battery, controller temperature (0103): +25 C, +26 C, 
+BT2Reader:BT-TH-66F94E1C    :                  Alternator voltage (0104):  12.8 Volts
+BT2Reader:BT-TH-66F94E1C    :                  Alternator current (0105):  0.00 Amps
+BT2Reader:BT-TH-66F94E1C    :            Alternator power (Watts) (0106):     0
