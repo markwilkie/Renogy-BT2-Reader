@@ -1,29 +1,12 @@
-#include "Arduino.h"
 #include <ArduinoBLE.h>
 #include "BT2Reader.h"
-#include "Renogy-BT2-Reader.h"
-
-/**	Adafruit nrf52 code for communicating with Renogy DCC series MPPT solar controllers and DC:DC converters
- * These include:
- * Renogy DCC30s - https://www.renogy.com/dcc30s-12v-30a-dual-input-dc-dc-on-board-battery-charger-with-mppt/
- * Renogy DCC50s - https://www.renogy.com/dcc50s-12v-50a-dc-dc-on-board-battery-charger-with-mppt/ 
- * 
- * This library can read operating parameters.  While it is possible with some effort to modify this code to
- * write parameters, I have not exposed this here, as it is a security risk.  USE THIS AT YOUR OWN RISK!
- * 
- * Copyright Neil Shepherd 2022
- * Released under GPL license
- * 
- * Thanks go to Wireshark for allowing me to read the bluetooth packets used 
- */
-
+#include "PowerMonitor.h"
 
 char * RENOGY_DEVICE_NAME = "BT-TH-66F94E1C    ";
 BLEDevice myDevice;
 BT2Reader bt2Reader;
 long lastChecked=0;
 int commandSequenceToSend=0;
-
 
 void setup() 
 {
@@ -73,18 +56,20 @@ void connectCallback(BLEDevice peripheral)
 		myDevice = peripheral;
 		Serial.print("Connected to BT2 device ");
 		Serial.println(peripheral.localName());
+		BLE.stopScan();
 	}
 }
 
 void disconnectCallback(BLEDevice peripheral) 
 {
 	commandSequenceToSend=0;  //need to start at the beginning since we disconnected
-	if (bt2Reader.disconnectCallback(peripheral)) 
-	{
-		//myDevice = NULL;
-		Serial.print("Disconnected to BT2 device ");
-		Serial.println(peripheral.localName());
-	}
+	bt2Reader.disconnectCallback(peripheral);
+
+	Serial.print("Disconnected to BT2 device: ");
+	Serial.print(peripheral.localName());
+
+	Serial.println("  Starting scan again");
+	BLE.scan();
 }
 
 void mainNotifyCallback(BLEDevice peripheral, BLECharacteristic characteristic)
@@ -109,11 +94,11 @@ void loop()
 		uint16_t startRegister = bt2Commands[commandSequenceToSend].startRegister;
 		uint16_t numberOfRegisters = bt2Commands[commandSequenceToSend].numberOfRegisters;
 		uint32_t sendReadCommandTime = millis();
-		bt2Reader.sendReadCommand(myDevice, startRegister, numberOfRegisters);
+		bt2Reader.sendReadCommand(startRegister, numberOfRegisters);
 		commandSequenceToSend++;
 		if(commandSequenceToSend>7)  commandSequenceToSend=4;
 
-		while (!bt2Reader.getIsNewDataAvailable(myDevice) && (millis() - sendReadCommandTime < 5000)) 
+		while (!bt2Reader.getIsNewDataAvailable() && (millis() - sendReadCommandTime < 5000)) 
 		{
 			BLE.poll();
 			delay(2);
@@ -131,20 +116,20 @@ void loop()
 					startRegister + numberOfRegisters - 1,
 					(millis() - sendReadCommandTime)
 			);
-			bt2Reader.printHex(bt2Reader.getDevice(myDevice)->dataReceived, bt2Reader.getDevice(myDevice)->dataReceivedLength, false);
+			bt2Reader.printHex(bt2Reader.dataReceived, bt2Reader.dataReceivedLength, false);
 
 			
 			for (int i = 0; i < numberOfRegisters; i++) 
 			{
 				Serial.printf("Register 0x%04X contains %d\n",
 					startRegister + i,
-					bt2Reader.getRegister(myDevice, startRegister + i)->value
+					bt2Reader.getRegister(startRegister + i)->value
 				);
 			}
 
 			for (int i = 0; i < numberOfRegisters; i++) 
 			{
-				bt2Reader.printRegister(myDevice, startRegister + i);
+				bt2Reader.printRegister(startRegister + i);
 			}
 		}
 	}

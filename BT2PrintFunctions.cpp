@@ -5,26 +5,10 @@
  *	^^^ has details on the data formats
  */
 
-
-int BT2Reader::printRegister(char * name, uint16_t registerAddress) {
-	if (getDeviceIndex(name) == -1) { return -1; }
-	return (printRegister(&deviceTable[getDeviceIndex(name)], registerAddress));
-}
-
-int BT2Reader::printRegister(uint8_t * address, uint16_t registerAddress) {
-	if (getDeviceIndex(address) == -1) { return -1; }
-	return (printRegister(&deviceTable[getDeviceIndex(address)], registerAddress));
-}
-
-int BT2Reader::printRegister(BLEDevice myDevice, uint16_t registerAddress) {
-	if (getDeviceIndex(myDevice) == -1) { return -1; }
-	return (printRegister(&deviceTable[getDeviceIndex(myDevice)], registerAddress));
-}
-
-int BT2Reader::printRegister(DEVICE * device, uint16_t registerAddress) {
+int BT2Reader::printRegister(uint16_t registerAddress) {
 
 	int registerDescriptionIndex = getRegisterDescriptionIndex(registerAddress);
-	int registerValueIndex = getRegisterValueIndex(device, registerAddress);
+	int registerValueIndex = getRegisterValueIndex(registerAddress);
 	if (registerDescriptionIndex == -1) {
 		//Serial.printf("printRegister: invalid register address 0x%04X; not found in description table; aborting\n", registerAddress);
 		return (1);
@@ -36,21 +20,21 @@ int BT2Reader::printRegister(DEVICE * device, uint16_t registerAddress) {
 
 	
 
-	uint16_t registerValue = device->registerValues[registerValueIndex].value;
+	uint16_t registerValue = registerValues[registerValueIndex].value;
 	uint8_t msb = (registerValue >> 8) & 0xFF;
 	uint8_t lsb = (registerValue) & 0xFF;	
 
 	const REGISTER_DESCRIPTION * rr = &registerDescription[registerDescriptionIndex];
 	Serial.print("BT2Reader:");	
-	Serial.printf("%10s: ", device->peerName);
+	Serial.printf("%10s: ", peripheryName);
 	Serial.printf("%35s (%04X): ", rr->name, rr->address);
 
 	switch(rr->type) {
 		case RENOGY_BYTES: 
 			{
 				for (int i = 0; i < rr->bytesUsed / 2; i++) {
-					Serial.printf("%02X ", (device->registerValues[registerValueIndex + i].value / 256) &0xFF);
-					Serial.printf("%02X ", (device->registerValues[registerValueIndex + i].value) &0xFF);
+					Serial.printf("%02X ", (registerValues[registerValueIndex + i].value / 256) &0xFF);
+					Serial.printf("%02X ", (registerValues[registerValueIndex + i].value) &0xFF);
 				}
 				break;
 			}
@@ -58,8 +42,8 @@ int BT2Reader::printRegister(DEVICE * device, uint16_t registerAddress) {
 		case RENOGY_CHARS: 
 			{
 				for (int i = 0; i < rr->bytesUsed / 2; i++) {
-					Serial.printf("%c", (char)((device->registerValues[registerValueIndex + i].value / 256) &0xFF));
-					Serial.printf("%c", (char)((device->registerValues[registerValueIndex + i].value) &0xFF));
+					Serial.printf("%c", (char)((registerValues[registerValueIndex + i].value / 256) &0xFF));
+					Serial.printf("%c", (char)((registerValues[registerValueIndex + i].value) &0xFF));
 				}
 				break;
 			}
