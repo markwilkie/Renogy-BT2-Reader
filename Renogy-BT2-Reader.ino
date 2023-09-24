@@ -78,6 +78,7 @@ void connectCallback(BLEDevice peripheral)
 
 void disconnectCallback(BLEDevice peripheral) 
 {
+	commandSequenceToSend=0;  //need to start at the beginning since we disconnected
 	if (bt2Reader.disconnectCallback(peripheral)) 
 	{
 		//myDevice = NULL;
@@ -103,12 +104,14 @@ void loop()
 	{
 		lastChecked=millis();
 
+		Serial.print("----------------  Sequence: ");
+		Serial.println(commandSequenceToSend);
 		uint16_t startRegister = bt2Commands[commandSequenceToSend].startRegister;
 		uint16_t numberOfRegisters = bt2Commands[commandSequenceToSend].numberOfRegisters;
 		uint32_t sendReadCommandTime = millis();
 		bt2Reader.sendReadCommand(myDevice, startRegister, numberOfRegisters);
 		commandSequenceToSend++;
-		if(commandSequenceToSend>7)  commandSequenceToSend=0;
+		if(commandSequenceToSend>7)  commandSequenceToSend=4;
 
 		while (!bt2Reader.getIsNewDataAvailable(myDevice) && (millis() - sendReadCommandTime < 5000)) 
 		{
