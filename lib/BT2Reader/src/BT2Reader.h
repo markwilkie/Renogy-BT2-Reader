@@ -4,6 +4,26 @@
 #include <ArduinoBLE.h>
 #include <array>
 
+/**	Adafruit nrf52 code for communicating with Renogy DCC series MPPT solar controllers and DC:DC converters
+ * These include:
+ * Renogy DCC30s - https://www.renogy.com/dcc30s-12v-30a-dual-input-dc-dc-on-board-battery-charger-with-mppt/
+ * Renogy DCC50s - https://www.renogy.com/dcc50s-12v-50a-dc-dc-on-board-battery-charger-with-mppt/ 
+ * 
+ * This library can read operating parameters.  While it is possible with some effort to modify this code to
+ * write parameters, I have not exposed this here, as it is a security risk.  USE THIS AT YOUR OWN RISK!
+ * 
+ * Other devices that use the BT-2 could likely use this library too, albeit with additional register lookups
+ * Currently this library only supports connecting to one BT2 device, future versions will have support for 
+ * multiple connected devices  
+ * 
+ * Copyright Neil Shepherd 2022
+ * Released under GPL license
+ * 
+ * Thanks go to Wireshark for allowing me to read the bluetooth packets used 
+ */
+#include "Arduino.h"
+
+
 static const uint16_t MODBUS_TABLE_A001[256] = {
 	0x0000, 0xC0C1, 0xC181, 0x0140, 0xC301, 0x03C0, 0x0280, 0xC241,
 	0xC601, 0x06C0, 0x0780, 0xC741, 0x0500, 0xC5C1, 0xC481, 0x0440,
@@ -219,61 +239,88 @@ struct REGISTER_VALUE {
 	uint32_t lastUpdateMillis = 0;
 };
 
-
-class BT2Reader 
-{
-
-public:
-
-	BLEDevice bt2Device;    //ArduinoBLE connected device
-	char peripheryName[20];
-	uint8_t peripheryAddress[6];
-	boolean connected = false;
-	boolean newDataAvailable;
+struct DEVICE {
+	BLEDevice device;
+	char peerName[20];
+	uint8_t peerAddress[6];
+	boolean slotNamed = false;
 
 	uint8_t dataReceived[DEFAULT_DATA_BUFFER_LENGTH];
 	int dataReceivedLength = 0;
 	boolean dataError = false;
+	int registerExpected;
+	boolean newDataAvailable;
 
-	void addTargetBT2Device(char * peerName);
-	void addTargetBT2Device(uint8_t * peerAddress);
+	REGISTER_VALUE registerValues[50];
+
+	BLECharacteristic txDeviceCharateristic;
+	BLECharacteristic rxDeviceCharateristic;
+
+	//const char* TX_SERVICE_UUID="0000ffD0-0000-1000-8000-00805f9b34fb"; 
+	//const char* TX_CHARACTERISTIC_UUID="0000ffD1-0000-1000-8000-00805f9b34fb";
+	const char* TX_SERVICE_UUID="ffd0";
+	const char* TX_CHARACTERISTIC_UUID="ffd1";		// Renogy Tx and Rx service
+
+	//const char* RX_SERVICE_UUID="0000ffF0-0000-1000-8000-00805f9b34fb";				// Renogy service
+	//const char* RX_CHARACTERISTIC_UUID="0000ffF1-0000-1000-8000-00805f9b34fb";		// Renogy Tx and Rx service
+	const char* RX_SERVICE_UUID="fff0";				// Renogy service
+	const char* RX_CHARACTERISTIC_UUID="fff1";		// Renogy Tx and Rx service
+};
+
+class BT2Reader {
+
+public:
+
+	int setDeviceTableSize(int i);
+	boolean addTargetBT2Device(char * peerName);
+	boolean addTargetBT2Device(uint8_t * peerAddress);
 	void begin();
 
 	boolean notifyCallback(BLEDevice myDevice, BLECharacteristic characteristic);
 	boolean scanCallback(BLEDevice);
 	boolean connectCallback(BLEDevice);
-	void disconnectCallback(BLEDevice);
+	boolean disconnectCallback(BLEDevice);
+
+	int getDeviceIndex(char * name);
+	int getDeviceIndex(uint8_t * address);
+	int getDeviceIndex(BLEDevice);
+	int getDeviceIndex(BLECharacteristic characteristic);
 	
-	REGISTER_VALUE * getRegister(uint16_t registerAddress);
+	DEVICE * getDevice(char * name);
+	DEVICE * getDevice(uint8_t * address);
+	DEVICE * getDevice(BLEDevice);
+	DEVICE * getDevice(int index);
 	
-	int printRegister(uint16_t registerAddress);
+	REGISTER_VALUE * getRegister(char * name, uint16_t registerAddress);
+	REGISTER_VALUE * getRegister(uint8_t * address, uint16_t registerAddress);
+	REGISTER_VALUE * getRegister(BLEDevice, uint16_t registerAddress);
+	REGISTER_VALUE * getRegister(int deviceIndex, uint16_t registerAddress);
+	//REGISTER_VALUE * getRegister(DEVICE * device, uint16_t registerAddress);
+	
+	int printRegister(char * name, uint16_t registerAddress);
+	int printRegister(uint8_t * device, uint16_t registerAddress);
+	int printRegister(BLEDevice, uint16_t registerAddress);
+	int printRegister(DEVICE * device, uint16_t registerAddress);
 
 	void printHex(uint8_t * data, int datalen);
 	void printHex(uint8_t * data, int datalen, boolean reverse);
 	void printUuid(uint8_t * data, int datalen);
 	
-	void sendReadCommand(uint16_t startRegister, uint16_t numberOfRegisters);
-	boolean getIsNewDataAvailable();
+	void sendReadCommand(uint8_t * address, uint16_t startRegister, uint16_t numberOfRegisters);
+	void sendReadCommand(char * name, uint16_t startRegister, uint16_t numberOfRegisters);
+	void sendReadCommand(BLEDevice myDevice, uint16_t startRegister, uint16_t numberOfRegisters);
+	void sendReadCommand(int index, uint16_t startRegister, uint16_t numberOfRegisters);
+		
+	boolean getIsNewDataAvailable(uint8_t * name);
+	boolean getIsNewDataAvailable(char * address);
+	boolean getIsNewDataAvailable(BLEDevice);
+	boolean getIsNewDataAvailable(int index);
 
 	void setLoggingLevel(int i);
 
 private:
 
-	//ArduinoBLE charateristic objects
-	BLECharacteristic txDeviceCharateristic;
-	BLECharacteristic rxDeviceCharateristic;
-
-	//Renogy services and characteristics needed
-	const char* TX_SERVICE_UUID="ffd0";
-	const char* TX_CHARACTERISTIC_UUID="ffd1";
-
-	const char* RX_SERVICE_UUID="fff0";
-	const char* RX_CHARACTERISTIC_UUID="fff1";
-
-	//const char* TX_SERVICE_UUID="0000ffD0-0000-1000-8000-00805f9b34fb"; 
-	//const char* TX_CHARACTERISTIC_UUID="0000ffD1-0000-1000-8000-00805f9b34fb";
-	//const char* RX_SERVICE_UUID="0000ffF0-0000-1000-8000-00805f9b34fb";				// Renogy service
-	//const char* RX_CHARACTERISTIC_UUID="0000ffF1-0000-1000-8000-00805f9b34fb";		// Renogy Tx and Rx service
+	const uint16_t BT2_TX_SERVICE = 0xFFD0;
 
 	const char HEX_LOWER_CASE[17] = "0123456789abcdef";
 	const char HEX_UPPER_CASE[17] = "0123456789ABCDEF";
@@ -281,23 +328,26 @@ private:
 	const uint8_t BLANK_MACID[6] = {0,0,0,0,0,0};									//useful to check whether a BT2 Device slot has a valid peer Mac Address or not
 	const char * LOGGING_LEVEL_TEXT[3] = { "QUIET", "ERROR", "VERBOSE"};
 
-	REGISTER_VALUE registerValues[50];
+	REGISTER_VALUE invalidRegister;
+	static BT2Reader * _pointerToBT2ReaderClass;
+	int numberOfConnections = 0;
+	
+	DEVICE deviceTable[MAXIMUM_BT2_DEVICES];
+	int deviceTableSize = 0;
 	int registerDescriptionSize = 0;
 	int registerValueSize = 0;
-	int registerExpected;
-	int loggingLevel = BT2READER_VERBOSE;
-	REGISTER_VALUE invalidRegister;
+	int loggingLevel = BT2READER_QUIET;
 
-	boolean appendRenogyPacket(BLECharacteristic characteristic);
+	boolean appendRenogyPacket(DEVICE * device, BLECharacteristic characteristic);
 	uint16_t getProvidedModbusChecksum(uint8_t * data);
 	uint16_t getCalculatedModbusChecksum(uint8_t * data);
 	uint16_t getCalculatedModbusChecksum(uint8_t * data, int start, int end);
 	boolean getIsReceivedDataValid(uint8_t * data);
 	int getExpectedLength(uint8_t * data);
-	void processDataReceived();
+	void processDataReceived(DEVICE * device);
 
 	int getRegisterDescriptionIndex(uint16_t registerAddress);
-	int getRegisterValueIndex(uint16_t registerAddress);
+	int getRegisterValueIndex(DEVICE * device, uint16_t registerAddress);
 
 	void log(const char * fsh, ...);
 	void logprintf(const char * fsh, ...);
